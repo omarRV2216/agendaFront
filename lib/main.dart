@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'package:schedulefront/screens/home.dart';
+import 'package:schedulefront/screens/login.dart';
 import 'providers/auth_provider.dart';
 import 'services/api_service.dart';
-import 'screens/login.dart';
-import 'screens/home.dart';
 
 void main() {
-  // Inicializa el ApiService
+  WidgetsFlutterBinding.ensureInitialized();
   ApiService().init();
-
   runApp(const MyApp());
 }
 
@@ -35,7 +33,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Pantalla inicial: verifica si hay sesión guardada
+/// Pantalla que verifica si hay sesión guardada antes de decidir a dónde ir
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -51,8 +49,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkSession() async {
-    final authProvider = context.read<AuthProvider>();
-    final isLoggedIn = await authProvider.tryAutoLogin();
+    final auth = context.read<AuthProvider>();
+    final isLoggedIn = await auth.tryAutoLogin();
 
     if (!mounted) return;
 
@@ -67,7 +65,16 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.spa, size: 80, color: Colors.pink),
+            SizedBox(height: 24),
+            CircularProgressIndicator(color: Colors.pink),
+          ],
+        ),
+      ),
     );
   }
 }

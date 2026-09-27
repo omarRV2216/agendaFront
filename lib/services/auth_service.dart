@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/user.dart';
 import 'api_service.dart';
@@ -29,10 +30,13 @@ class AuthService {
         final token = data['data']['token'];
         final userJson = data['data']['user'];
 
-        // Guardar el token
+        print('=== TOKEN RECIBIDO: $token ===');   // 👈 agrega esto
+
         await _api.setToken(token);
 
-        // Crear el modelo User
+        final prefs = await SharedPreferences.getInstance();
+        print('=== TOKEN EN PREFS: ${prefs.getString('token')} ===');   // 👈 y esto
+
         return User.fromJson(userJson);
       } else {
         throw Exception(data['message'] ?? 'Error desconocido');
@@ -62,7 +66,7 @@ class AuthService {
   /// Obtiene el usuario actual (útil para verificar si el token sigue válido)
   Future<User> me() async {
     try {
-      final response = await _api.dio.get(ApiConfig.me);
+      final response = await _api.dio.post(ApiConfig.me);
       final data = response.data;
 
       // Ajusta según tu respuesta real
