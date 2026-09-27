@@ -14,23 +14,6 @@ class HomeScreen extends StatelessWidget {
     final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
-        actions: [
-          // 👇 BOTÓN TEMPORAL PARA DEBUG
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              final token = prefs.getString('token');
-              print('=== TOKEN EN PREFERENCIAS ===');
-              print(token ?? 'null');
-              print('=== TOKEN EN MEMORIA ===');
-              print(ApiService().token ?? 'null');
-            },
-          ),
-        ],
-      ),
       body: const DashboardScreen(),
     );
   }

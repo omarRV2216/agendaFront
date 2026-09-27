@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Representa una opción de submenú (la "subsección")
+/// Subsección (dentro de una sección con subsecciones)
 class SubMenuItem {
   final String title;
   final IconData icon;
@@ -13,15 +13,22 @@ class SubMenuItem {
   });
 }
 
-/// Representa un grupo del menú (la "sección")
+/// Sección del menú.
+/// - Si `page` está definido → es un item directo (sin subsecciones)
+/// - Si `items` está definido → es una sección con subsecciones
 class MenuSection {
   final String title;
   final IconData icon;
-  final List<SubMenuItem> items;
+  final Widget? page;              // 👈 nuevo: página directa
+  final List<SubMenuItem> items;   // 👈 subsecciones (vacío si es directa)
 
   MenuSection({
     required this.title,
     required this.icon,
-    required this.items,
+    this.page,
+    this.items = const [],
   });
+
+  /// ¿Es un item directo (sin subsecciones)?
+  bool get isDirect => page != null && items.isEmpty;
 }

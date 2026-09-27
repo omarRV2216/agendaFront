@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:schedulefront/providers/auth_provider.dart';
 import 'package:schedulefront/screens/dashboard/menu_items.dart';
-import 'package:schedulefront/screens/dashboard/pages/page_2_1.dart';
+import 'package:schedulefront/screens/dashboard/pages/empleados/Empleados.dart';
+import 'package:schedulefront/screens/dashboard/pages/welcome/welcome_home.dart';
 import '../login.dart';
 import 'pages/page_1_1.dart';
 import 'pages/page_1_2.dart';
@@ -15,7 +16,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  SubMenuItem? _currentItem;
+  Object? _currentItem;
+
   late final List<MenuSection> _sections;
 
   @override
@@ -24,60 +26,87 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     _sections = [
       MenuSection(
+        title: 'Home',
+        icon: Icons.home,
+        page: const WelcomeHome(),
+      ),
+
+      MenuSection(
         title: 'Citas',
-        icon: Icons.folder,
+        icon: Icons.calendar_today,
         items: [
           SubMenuItem(
             title: 'Todas las citas',
-            icon: Icons.insert_drive_file,
+            icon: Icons.list,
             page: const Page11(),
           ),
           SubMenuItem(
             title: 'Calendario',
-            icon: Icons.insert_drive_file,
+            icon: Icons.calendar_month,
             page: const Page12(),
           ),
         ],
       ),
+
       MenuSection(
         title: 'Empleados',
-        icon: Icons.work,
+        icon: Icons.people,
         items: [
           SubMenuItem(
             title: 'Lista de empleados',
             icon: Icons.assignment,
-            page: const Page21(),
+            page: const EmpleadosPage(),
           ),
         ],
       ),
+
       MenuSection(
         title: 'Servicios',
-        icon: Icons.work,
+        icon: Icons.spa,
         items: [
           SubMenuItem(
-            title: 'Catalogo',
-            icon: Icons.assignment,
-            page: const Page21(),
+            title: 'Catálogo',
+            icon: Icons.list,
+            page: const EmpleadosPage(),
           ),
           SubMenuItem(
-            title: 'Crear Servicio',
-            icon: Icons.assignment,
-            page: const Page21(),
+            title: 'Crear servicio',
+            icon: Icons.add,
+            page: const EmpleadosPage(),
           ),
         ],
       ),
     ];
 
-    _currentItem = _sections.first.items.first;
+    _currentItem = _sections.first;
   }
 
-  void _selectItem(SubMenuItem item) {
-    setState(() {
-      _currentItem = item;
-    });
+  Widget _getCurrentPage() {
+    final item = _currentItem;
+
+    if (item == null) {
+      return const Center(child: Text('Selecciona una opción'));
+    }
+
+    if (item is MenuSection && item.isDirect) {
+      return item.page!;
+    }
+
+    if (item is SubMenuItem) {
+      return item.page;
+    }
+
+    if (item is MenuSection && item.items.isNotEmpty) {
+      return item.items.first.page;
+    }
+
+    return const Center(child: Text('Selecciona una opción'));
   }
 
-  /// Cierra la sesión y regresa al login
+  bool _isSelected(Object item) {
+    return _currentItem == item;
+  }
+
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -98,7 +127,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     if (confirmed != true) return;
-
     if (!mounted) return;
 
     final authProvider = context.read<AuthProvider>();
@@ -115,29 +143,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 800;
-    final authProvider = context.watch<AuthProvider>();
-    final user = authProvider.user;
+    final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         backgroundColor: Colors.pink,
         foregroundColor: Colors.white,
-
         actions: [
-
           if (user != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Center(
-                child: Text(
-                  user.name,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                child: Text(user.name, style: const TextStyle(fontSize: 14)),
               ),
             ),
-
-          // Botón de logout
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar sesión',
@@ -149,15 +169,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: isWide
           ? Row(
         children: [
-          SizedBox(
-            width: 280,
-            child: _buildSidebar(isWide),
-          ),
+          SizedBox(width: 280, child: _buildSidebar(isWide)),
           const VerticalDivider(width: 1),
-          Expanded(child: _buildContent()),
+          Expanded(child: _getCurrentPage()),
         ],
       )
-          : _buildContent(),
+          : _getCurrentPage(),
     );
   }
 
@@ -179,17 +196,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: SafeArea(
         child: Column(
           children: [
-            // Header del drawer con info del usuario
             Container(
               color: Colors.pink,
               padding: const EdgeInsets.all(16),
               width: double.infinity,
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.spa, color: Colors.white, size: 40),
-                  const SizedBox(height: 8),
-                  const Text(
+                  Icon(Icons.spa, color: Colors.white, size: 40),
+                  SizedBox(height: 8),
+                  Text(
                     'Nail Salon',
                     style: TextStyle(
                       color: Colors.white,
@@ -200,18 +216,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-
-            // Secciones
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
-                children: _sections
-                    .map((s) => _buildSection(s, isWide))
-                    .toList(),
+                children:
+                _sections.map((s) => _buildSection(s, isWide)).toList(),
               ),
             ),
-
-            // 👇 Logout al final del drawer (opcional)
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
@@ -220,8 +231,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: TextStyle(color: Colors.red),
               ),
               onTap: () {
-                Navigator.pop(context);   // cierra el drawer
-                _logout();                // luego logout
+                Navigator.pop(context);
+                _logout();
               },
             ),
           ],
@@ -230,7 +241,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Construye una sección (ExpansionTile si tiene subsecciones, ListTile si es directa)
   Widget _buildSection(MenuSection section, bool isWide) {
+    if (section.isDirect) {
+      final isSelected = _isSelected(section);
+
+      return ListTile(
+        leading: Icon(
+          section.icon,
+          color: isSelected ? Colors.pink : Colors.grey.shade700,
+        ),
+        title: Text(
+          section.title,
+          style: TextStyle(
+            color: isSelected ? Colors.pink : Colors.black87,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        selected: isSelected,
+        selectedTileColor: Colors.pink.withOpacity(0.1),
+        onTap: () {
+          setState(() => _currentItem = section);
+          if (!isWide) Navigator.pop(context);
+        },
+      );
+    }
+
+    // Si tiene subsecciones → ExpansionTile
     return ExpansionTile(
       leading: Icon(section.icon, color: Colors.pink),
       title: Text(
@@ -238,17 +275,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       initiallyExpanded: _isSectionExpanded(section),
-      children:
-      section.items.map((item) => _buildSubItem(item, isWide)).toList(),
+      children: section.items.map((item) => _buildSubItem(item, isWide)).toList(),
     );
   }
 
   bool _isSectionExpanded(MenuSection section) {
+    // Expandida si contiene el item actual
     return section.items.contains(_currentItem);
   }
 
   Widget _buildSubItem(SubMenuItem item, bool isWide) {
-    final isSelected = _currentItem == item;
+    final isSelected = _isSelected(item);
 
     return ListTile(
       contentPadding: const EdgeInsets.only(left: 40, right: 16),
@@ -268,19 +305,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       selected: isSelected,
       selectedTileColor: Colors.pink.withOpacity(0.1),
       onTap: () {
-        _selectItem(item);
-
-        if (!isWide) {
-          Navigator.of(context).pop();
-        }
+        setState(() => _currentItem = item);
+        if (!isWide) Navigator.of(context).pop();
       },
     );
-  }
-
-  Widget _buildContent() {
-    if (_currentItem == null) {
-      return const Center(child: Text('Selecciona una opción del menú'));
-    }
-    return _currentItem!.page;
   }
 }
