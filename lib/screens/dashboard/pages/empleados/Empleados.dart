@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:schedulefront/screens/dashboard/pages/empleados/widgets/create_empleado.dart';
+import 'package:schedulefront/screens/dashboard/pages/empleados/widgets/editar_empleado.dart';
 
 import '../../../../services/empleado_service.dart';
 
@@ -267,10 +268,121 @@ class _EmpleadosListaPageState extends State<EmpleadosPage> {
                 ],
               ),
             ),
+
+            // 👇 Menú de opciones
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.grey),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: EdgeInsets.zero,
+              onSelected: (value) => _onMenuAction(value, e),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'editar',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Editar'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'eliminar',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Eliminar', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _onMenuAction(String action, dynamic e) async {
+    final id = e['id'] as int;
+    final name = (e['name'] ?? '').toString();
+
+    switch (action) {
+    // ─────────────────────────────────────
+    // EDITAR
+    // ─────────────────────────────────────
+      case 'editar':
+        final editado = await EditarEmpleadoDialog.show(context, e);
+        if (editado == true) {
+          _cargar();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Empleado actualizado'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+        break;
+
+
+    // ─────────────────────────────────────
+    // ELIMINAR
+    // ─────────────────────────────────────
+      case 'eliminar':
+        final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Eliminar empleado'),
+            content: Text(
+              '¿Estás seguro de eliminar a "$name"?\n\nEsta acción no se puede deshacer.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('Eliminar'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmar != true) return;
+
+        try {
+          await _service.eliminar(id);
+          _cargar();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🗑️ Empleado eliminado'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (err) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(err.toString().replaceAll('Exception: ', '')),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+        break;
+    }
   }
 
   // ──────────────────────────────────────────────
