@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:schedulefront/providers/auth_provider.dart';
 import 'package:schedulefront/screens/dashboard/menu_items.dart';
 import 'package:schedulefront/screens/dashboard/pages/empleados/Empleados.dart';
+import 'package:schedulefront/screens/dashboard/pages/servicios/servicios_lista.dart';
 import 'package:schedulefront/screens/dashboard/pages/welcome/welcome_home.dart';
 import '../login.dart';
 import 'pages/page_1_1.dart';
@@ -65,9 +66,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: Icons.spa,
         items: [
           SubMenuItem(
-            title: 'Catálogo',
+            title: 'Lista de Servicios',
             icon: Icons.list,
-            page: const EmpleadosPage(),
+            page: const ServiciosListaPage(),
           ),
           SubMenuItem(
             title: 'Crear servicio',
