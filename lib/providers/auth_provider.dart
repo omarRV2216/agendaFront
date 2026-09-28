@@ -18,24 +18,18 @@ class AuthProvider with ChangeNotifier {
 
   /// Intenta restaurar la sesión al abrir la app
   Future<bool> tryAutoLogin() async {
-    print('🔵 [tryAutoLogin] INICIO');
 
     await _apiService.loadToken();
-    print('🔵 [tryAutoLogin] token cargado: ${_apiService.token}');
 
     if (_apiService.token == null) {
-      print('🔵 [tryAutoLogin] no hay token → Login');
       return false;
     }
 
     try {
-      print('🔵 [tryAutoLogin] llamando a me()...');
       _user = await _authService.me();
-      print('✅ [tryAutoLogin] me() OK → user: ${_user?.username}');
       notifyListeners();
       return true;
     } catch (e) {
-      print('❌ [tryAutoLogin] me() FALLÓ: $e');
       await _apiService.clearToken();
       return false;
     }

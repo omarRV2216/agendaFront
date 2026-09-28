@@ -30,12 +30,10 @@ class AuthService {
         final token = data['data']['token'];
         final userJson = data['data']['user'];
 
-        print('=== TOKEN RECIBIDO: $token ===');   // 👈 agrega esto
 
         await _api.setToken(token);
 
         final prefs = await SharedPreferences.getInstance();
-        print('=== TOKEN EN PREFS: ${prefs.getString('token')} ===');   // 👈 y esto
 
         return User.fromJson(userJson);
       } else {
