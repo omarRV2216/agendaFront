@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+
 import 'package:schedulefront/screens/home.dart';
 import 'package:schedulefront/screens/login.dart';
 import 'providers/auth_provider.dart';
 import 'services/api_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 👇 Inicializar intl para español
+  await initializeDateFormatting('es_ES', null);
+
   ApiService().init();
   runApp(const MyApp());
 }
@@ -27,6 +34,19 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.pink),
           useMaterial3: true,
         ),
+
+        // 👇 Locale y delegates para español
+        locale: const Locale('es', 'ES'),
+        supportedLocales: const [
+          Locale('es', 'ES'),
+          Locale('en', 'US'),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+
         home: const SplashScreen(),
       ),
     );

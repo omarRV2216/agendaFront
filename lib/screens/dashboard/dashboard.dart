@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:schedulefront/providers/auth_provider.dart';
 import 'package:schedulefront/screens/dashboard/menu_items.dart';
+import 'package:schedulefront/screens/dashboard/pages/citas/citas_lista.dart';
 import 'package:schedulefront/screens/dashboard/pages/empleados/Empleados.dart';
 import 'package:schedulefront/screens/dashboard/pages/servicios/servicios_lista.dart';
 import 'package:schedulefront/screens/dashboard/pages/welcome/welcome_home.dart';
@@ -39,7 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SubMenuItem(
             title: 'Todas las citas',
             icon: Icons.list,
-            page: const Page11(),
+            page: const CitasListaPage(),
           ),
           SubMenuItem(
             title: 'Calendario',

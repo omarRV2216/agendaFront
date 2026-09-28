@@ -38,9 +38,10 @@ dependencies:
   shared_preferences: ^2.5.5
   provider: ^6.1.5+1
   image_picker: ^1.2.3
+  intl: ^0.20.3
 
-
-
+  flutter_localizations: # 👈 AGREGA ESTAS 2 LÍNEAS
+      sdk: flutter
 
 dev_dependencies:
   flutter_test:

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../models/service.dart';
 import 'api_service.dart';
+import '../models/empleado_simple.dart';
 
 class ServiceService {
   final ApiService _api = ApiService();
@@ -164,6 +165,26 @@ class ServiceService {
       }
     } on DioException catch (e) {
       final msg = e.response?.data['message'] ?? 'No se pudo conectar';
+      throw Exception(msg);
+    }
+  }
+
+  /// Empleados que pueden hacer un servicio.
+  Future<List<EmpleadoSimple>> empleados(int serviceId) async {
+    try {
+      final response = await _api.dio.get('/services/$serviceId/employees');
+
+      final data = response.data;
+
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? 'Error al consultar empleados');
+      }
+
+      return (data['data'] as List)
+          .map((e) => EmpleadoSimple.fromJson(e))
+          .toList();
+    } on DioException catch (e) {
+      final msg = e.response?.data['message'] ?? 'No se pudo conectar al servidor';
       throw Exception(msg);
     }
   }
