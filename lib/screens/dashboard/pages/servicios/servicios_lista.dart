@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:schedulefront/screens/dashboard/pages/servicios/widgets/crear_servicios.dart';
+import 'package:schedulefront/screens/dashboard/pages/servicios/widgets/editar_servicio.dart';
 import '../../../../models/service.dart';
 import '../../../../services/service_service.dart';
 
@@ -104,8 +106,7 @@ class _ServiciosListaPageState extends State<ServiciosListaPage> {
               ),
               IconButton(
                 onPressed: () async {
-                 /*
-                 final creado = await CrearServicioDialog.show(context);
+                  final creado = await CrearServicioDialog.show(context);
                   if (creado == true) {
                     _cargar();
                     if (mounted) {
@@ -117,7 +118,6 @@ class _ServiciosListaPageState extends State<ServiciosListaPage> {
                       );
                     }
                   }
-                 * */
                 },
                 icon: const Icon(Icons.add),
               ),
@@ -232,8 +232,6 @@ class _ServiciosListaPageState extends State<ServiciosListaPage> {
   // Card de servicio
   // ──────────────────────────────────────────────
   Widget _buildCard(Service s) {
-    print('🖼️ photoPath: ${s.photoPath}');
-    print('🖼️ photoUrl: ${s.photoUrl}');
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -265,7 +263,7 @@ class _ServiciosListaPageState extends State<ServiciosListaPage> {
                   Icons.spa_outlined,
                   color: Colors.pink.shade200,
                   size: 28,
-                )
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -344,9 +342,149 @@ class _ServiciosListaPageState extends State<ServiciosListaPage> {
                 ],
               ),
             ),
+
+            // 👇 Menú de opciones
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.grey),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: EdgeInsets.zero,
+              onSelected: (value) => _onMenuAction(value, s),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'editar',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Editar'),
+                    ],
+                  ),
+                ),
+
+                const PopupMenuItem(
+                  value: 'eliminar',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Eliminar', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+// ──────────────────────────────────────────────
+// Manejo de acciones del menú
+// ──────────────────────────────────────────────
+  Future<void> _onMenuAction(String action, Service s) async {
+    switch (action) {
+    // ─────────────────────────────────────
+    // EDITAR
+    // ─────────────────────────────────────
+      case 'editar':
+        final editado = await EditarServicioDialog.show(context, s);
+        if (editado == true) {
+          _cargar();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Servicio actualizado'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+        break;
+
+    // ─────────────────────────────────────
+    // ACTIVAR / DESACTIVAR
+    // ─────────────────────────────────────
+      case 'toggle':
+        try {
+          await _service.desactivar(s.id);
+          _cargar();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  s.active ? '🚫 Servicio desactivado' : '✅ Servicio activado',
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.toString().replaceAll('Exception: ', '')),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+        break;
+
+    // ─────────────────────────────────────
+    // ELIMINAR
+    // ─────────────────────────────────────
+      case 'eliminar':
+        final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Eliminar servicio'),
+            content: Text(
+              '¿Estás seguro de eliminar "${s.name}"?\n\nEsta acción no se puede deshacer.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('Eliminar'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmar != true) return;
+
+        try {
+          await _service.eliminar(s.id);
+          _cargar();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🗑️ Servicio eliminado'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.toString().replaceAll('Exception: ', '')),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+        break;
+    }
   }
 }

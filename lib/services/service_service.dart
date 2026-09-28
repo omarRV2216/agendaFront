@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../models/service.dart';
 import 'api_service.dart';
@@ -11,8 +12,7 @@ class ServiceService {
     String? name,
     bool? active,
     String? search,
-  }) async
-  {
+  }) async {
     try {
       final queryParams = <String, dynamic>{};
 
@@ -43,29 +43,38 @@ class ServiceService {
     }
   }
 
-  /// Crear servicio con imagen (opcional).
+  /// Crear servicio con imagen (opcional). Recibe bytes en vez de ruta.
   Future<int> crear({
     required String name,
     String? description,
     required double price,
     required int durationMinutes,
     bool active = true,
-    String? photoPath,   // ruta local del archivo
+    Uint8List? photoBytes,
+    String? photoFileName,
   }) async {
     try {
-      final formData = FormData.fromMap({
+      final map = <String, dynamic>{
         'name': name,
         if (description != null && description.isNotEmpty)
           'description': description,
         'price': price.toString(),
         'duration_minutes': durationMinutes.toString(),
         'active': active ? '1' : '0',
-        if (photoPath != null)
-          'photo': await MultipartFile.fromFile(photoPath),
-      });
+      };
+
+      // 👇 MultipartFile desde bytes (funciona en Web y móvil)
+      if (photoBytes != null && photoFileName != null) {
+        map['photo'] = MultipartFile.fromBytes(
+          photoBytes,
+          filename: photoFileName,
+        );
+      }
+
+      final formData = FormData.fromMap(map);
 
       final response = await _api.dio.post(
-        '/servicios',
+        '/servicios/create',   // ⚠️ ajusta según tu ruta
         data: formData,
       );
 
@@ -75,9 +84,8 @@ class ServiceService {
         throw Exception(data['message'] ?? 'Error al crear servicio');
       }
 
-      return data['data']['id'] is int
-          ? data['data']['id']
-          : int.tryParse(data['data']['id'].toString()) ?? 0;
+      final id = data['data']['id'];
+      return id is int ? id : int.tryParse(id.toString()) ?? 0;
     } on DioException catch (e) {
       final msg = e.response?.data['message'] ?? 'No se pudo conectar al servidor';
       throw Exception(msg);
@@ -92,21 +100,29 @@ class ServiceService {
     required double price,
     required int durationMinutes,
     bool active = true,
-    String? photoPath,
+    Uint8List? photoBytes,
+    String? photoFileName,
   }) async {
     try {
-      final formData = FormData.fromMap({
+      final map = <String, dynamic>{
         'name': name,
         if (description != null && description.isNotEmpty)
           'description': description,
         'price': price.toString(),
         'duration_minutes': durationMinutes.toString(),
         'active': active ? '1' : '0',
-        if (photoPath != null)
-          'photo': await MultipartFile.fromFile(photoPath),
-      });
+      };
 
-      final response = await _api.dio.put(
+      if (photoBytes != null && photoFileName != null) {
+        map['photo'] = MultipartFile.fromBytes(
+          photoBytes,
+          filename: photoFileName,
+        );
+      }
+
+      final formData = FormData.fromMap(map);
+
+      final response = await _api.dio.post(
         '/servicios/$id',
         data: formData,
       );
