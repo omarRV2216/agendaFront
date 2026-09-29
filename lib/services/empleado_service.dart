@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../models/empleado_simple.dart';
 import '../models/role.dart';
 import 'api_service.dart';
 
@@ -177,6 +178,26 @@ class EmpleadoService {
 
       return (data['data'] as List)
           .map((e) => Role.fromJson(e))
+          .toList();
+    } on DioException catch (e) {
+      final msg = e.response?.data['message'] ?? 'No se pudo conectar al servidor';
+      throw Exception(msg);
+    }
+  }
+
+  /// Lista ligera: solo id y name. Útil para dropdowns.
+  Future<List<EmpleadoSimple>> listaSimple() async {
+    try {
+      final response = await _api.dio.get('/employees-list');
+
+      final data = response.data;
+
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? 'Error al consultar empleados');
+      }
+
+      return (data['data'] as List)
+          .map((e) => EmpleadoSimple.fromJson(e))
           .toList();
     } on DioException catch (e) {
       final msg = e.response?.data['message'] ?? 'No se pudo conectar al servidor';

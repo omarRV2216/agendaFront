@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:schedulefront/screens/dashboard/pages/citas/widgets/create_cita.dart';
+import 'package:schedulefront/screens/dashboard/pages/citas/widgets/detalles_cita.dart';
 import '../../../../models/cita.dart';
 import '../../../../services/cita_service.dart';
 
@@ -129,7 +130,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
   }
 
   // ──────────────────────────────────────────────
-  // Header: título + navegación de semana + botón nueva
+  // Header
   // ──────────────────────────────────────────────
   Widget _buildHeader() {
     return Container(
@@ -140,7 +141,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
         children: [
           Row(
             children: [
-              // Contador
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
@@ -182,7 +182,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
 
           const SizedBox(height: 16),
 
-          // Navegación de semana
           Row(
             children: [
               IconButton(
@@ -240,20 +239,14 @@ class _CitasListaPageState extends State<CitasListaPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Ancho mínimo por día (para que no se aplaste)
         const double anchoMinimoDia = 130;
         const double anchoHoras = 60;
-        final double anchoDisponible =
-            constraints.maxWidth - anchoHoras;
-
-        // Si no caben 7 columnas, activamos scroll horizontal
+        final double anchoDisponible = constraints.maxWidth - anchoHoras;
         final double anchoTotal = anchoMinimoDia * 7;
 
         if (anchoDisponible >= anchoTotal) {
-          // Caben todas → expandir
           return _buildGrid(anchoDia: anchoDisponible / 7);
         } else {
-          // No caben → scroll horizontal
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SizedBox(
@@ -297,13 +290,12 @@ class _CitasListaPageState extends State<CitasListaPage> {
   // Grid semanal
   // ──────────────────────────────────────────────
   Widget _buildGrid({required double anchoDia}) {
-    const double altoHora = 60; // 60px por hora
-    const double altoHeader = 60; // franja con los días
-    const int horaInicio = 8;   // 8 AM
-    const int horaFin = 21;     // 9 PM
+    const double altoHora = 60;
+    const double altoHeader = 60;
+    const int horaInicio = 8;
+    const int horaFin = 21;
     final int totalHoras = horaFin - horaInicio;
 
-    // Agrupar citas por día
     final citasPorDia = <int, List<Appointment>>{};
     for (int i = 0; i < 7; i++) {
       citasPorDia[i] = [];
@@ -323,15 +315,12 @@ class _CitasListaPageState extends State<CitasListaPage> {
 
     return Column(
       children: [
-        // ── Header con los 7 días ──
         Container(
           height: altoHeader,
           color: Colors.white,
           child: Row(
             children: [
-              // Esquina vacía (ancho de columna de horas)
               const SizedBox(width: 60),
-              // Cabeceras de días
               for (int i = 0; i < 7; i++)
                 _buildHeaderDia(
                   fecha: _semanaActual.add(Duration(days: i)),
@@ -343,17 +332,14 @@ class _CitasListaPageState extends State<CitasListaPage> {
 
         const Divider(height: 1),
 
-        // ── Cuerpo con scroll vertical ──
         Expanded(
           child: SingleChildScrollView(
             child: SizedBox(
               height: totalHoras * altoHora,
               child: Stack(
                 children: [
-                  // Columna de horas + grid de fondo
                   Row(
                     children: [
-                      // Columna de horas
                       SizedBox(
                         width: 60,
                         child: Column(
@@ -379,7 +365,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
                         ),
                       ),
 
-                      // Columnas de días
                       for (int i = 0; i < 7; i++)
                         _buildColumnaDia(
                           ancho: anchoDia,
@@ -392,8 +377,11 @@ class _CitasListaPageState extends State<CitasListaPage> {
                     ],
                   ),
 
-                  // Línea roja "ahora" (solo si hoy está en la semana mostrada)
-                  ..._buildLineaAhora(altoHora: altoHora, horaInicio: horaInicio, anchoDia: anchoDia),
+                  ..._buildLineaAhora(
+                    altoHora: altoHora,
+                    horaInicio: horaInicio,
+                    anchoDia: anchoDia,
+                  ),
                 ],
               ),
             ),
@@ -450,6 +438,86 @@ class _CitasListaPageState extends State<CitasListaPage> {
     );
   }
 
+  // ──────────────────────────────────────────────
+  // Algoritmo de columnas
+  // ──────────────────────────────────────────────
+  /// Dado un grupo de citas, calcula en qué sub-columna va cada una.
+  List<Map<String, dynamic>> _calcularColumnas(List<Appointment> citas) {
+    if (citas.isEmpty) return [];
+
+    final ordenadas = List<Appointment>.from(citas)
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final resultado = <Map<String, dynamic>>[];
+
+    // Agrupar en clusters (citas que se solapan entre sí)
+    final clusters = <List<Appointment>>[];
+
+    for (final cita in ordenadas) {
+      bool agregada = false;
+
+      for (final cluster in clusters) {
+        final seSolapa = cluster.any((c) {
+          return cita.startTime.compareTo(c.endTime) < 0 &&
+              cita.endTime.compareTo(c.startTime) > 0;
+        });
+
+        if (seSolapa) {
+          cluster.add(cita);
+          agregada = true;
+          break;
+        }
+      }
+
+      if (!agregada) {
+        clusters.add([cita]);
+      }
+    }
+
+    // Dentro de cada cluster, asignar columnas
+    for (final cluster in clusters) {
+      final columnas = <DateTime>[];
+
+      for (final cita in cluster) {
+        final inicio = DateTime.parse(cita.startTime);
+
+        int colIndex = -1;
+        for (int i = 0; i < columnas.length; i++) {
+          if (!columnas[i].isAfter(inicio)) {
+            colIndex = i;
+            break;
+          }
+        }
+
+        if (colIndex == -1) {
+          columnas.add(DateTime.parse(cita.endTime));
+          colIndex = columnas.length - 1;
+        } else {
+          columnas[colIndex] = DateTime.parse(cita.endTime);
+        }
+
+        resultado.add({
+          'cita': cita,
+          'columnIndex': colIndex,
+          'totalColumns': 0,
+        });
+      }
+
+      final totalCols = columnas.length;
+
+      for (final item in resultado) {
+        if (cluster.contains(item['cita'])) {
+          item['totalColumns'] = totalCols;
+        }
+      }
+    }
+
+    return resultado;
+  }
+
+  // ──────────────────────────────────────────────
+  // Columna de un día
+  // ──────────────────────────────────────────────
   Widget _buildColumnaDia({
     required double ancho,
     required double altoHora,
@@ -458,12 +526,18 @@ class _CitasListaPageState extends State<CitasListaPage> {
     required List<Appointment> citas,
     required bool esHoy,
   }) {
-    // Posicionar cada cita
+    // Calcular posiciones con el algoritmo de columnas
+    final posiciones = _calcularColumnas(citas);
+
     final eventos = <Widget>[];
 
-    for (final c in citas) {
-      final inicio = DateTime.tryParse(c.startTime);
-      final fin = DateTime.tryParse(c.endTime);
+    for (final item in posiciones) {
+      final cita = item['cita'] as Appointment;
+      final colIndex = item['columnIndex'] as int;
+      final totalCols = item['totalColumns'] as int;
+
+      final inicio = DateTime.tryParse(cita.startTime);
+      final fin = DateTime.tryParse(cita.endTime);
       if (inicio == null || fin == null) continue;
 
       final minutosDesdeInicio =
@@ -473,16 +547,19 @@ class _CitasListaPageState extends State<CitasListaPage> {
       final top = (minutosDesdeInicio / 60) * altoHora;
       final height = (duracionMinutos / 60) * altoHora;
 
-      // Saltar los que están fuera del rango visible
       if (top + height < 0 || top > totalHoras * altoHora) continue;
+
+      // Repartir el ancho entre las columnas del cluster
+      final anchoSlot = (ancho - 4) / totalCols;
+      final left = colIndex * anchoSlot + 2;
 
       eventos.add(
         Positioned(
           top: top,
-          left: 2,
-          right: 2,
+          left: left,
+          width: anchoSlot - 2,
           height: height.clamp(20, double.infinity),
-          child: _buildEventoCita(c, esHoy: esHoy),
+          child: _buildEventoCita(cita, esHoy: esHoy),
         ),
       );
     }
@@ -498,7 +575,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
       ),
       child: Stack(
         children: [
-          // Líneas horizontales de las horas
           Column(
             children: [
               for (int h = 0; h < totalHoras; h++)
@@ -513,7 +589,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
             ],
           ),
 
-          // Eventos
           ...eventos,
         ],
       ),
@@ -528,13 +603,14 @@ class _CitasListaPageState extends State<CitasListaPage> {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
           decoration: BoxDecoration(
             color: color.withOpacity(0.15),
             border: Border(
               left: BorderSide(color: color, width: 3),
             ),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,7 +619,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
               Text(
                 c.clientName,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                   color: color.withOpacity(0.9),
                 ),
@@ -554,7 +630,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
                 Text(
                   c.serviceName,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9.5,
                     color: Colors.grey.shade700,
                   ),
                   maxLines: 1,
@@ -585,7 +661,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
   }) {
     final ahora = DateTime.now();
 
-    // ¿Está hoy en la semana mostrada?
     final diff = DateTime(ahora.year, ahora.month, ahora.day)
         .difference(_semanaActual)
         .inDays;
@@ -629,13 +704,10 @@ class _CitasListaPageState extends State<CitasListaPage> {
   // Colores por estado
   // ──────────────────────────────────────────────
   Color _colorEstado(String status) => switch (status) {
-    'pending'     => Colors.orange.shade700,
-    'confirmed'   => Colors.green.shade700,
-    'in_progress' => Colors.blue.shade700,
-    'completed'   => Colors.blueGrey.shade600,
-    'cancelled'   => Colors.red.shade400,
-    'no_show'     => Colors.red.shade700,
-    _             => Colors.grey.shade600,
+    'pending'   => Colors.tealAccent.shade700,   // 🟠
+    'completed' => Colors.green.shade700,    // 🟢
+    'cancelled' => Colors.red.shade600,      // 🔴
+    _           => Colors.grey.shade600,
   };
 
   bool _esHoy(DateTime fecha) {
@@ -648,11 +720,49 @@ class _CitasListaPageState extends State<CitasListaPage> {
   // ──────────────────────────────────────────────
   // Acciones
   // ──────────────────────────────────────────────
+  Future<void> _abrirDetalleCita(Appointment c) async {
+    final accion = await DetalleCitaDialog.show(context, c);
 
-  void _abrirDetalleCita(Appointment c) {
-    // TODO: implementar detalle / editar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Detalle de cita: ${c.clientName}')),
-    );
+    if (!mounted || accion == null) return;
+
+    if (accion == 'updated') {
+      _cargar();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Cita actualizada'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else if (accion == 'deleted') {
+      _cargar();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🗑️ Cita eliminada'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else if (accion == 'reschedule') {
+      // 👇 El padre abre el wizard
+      final reagendada = await NuevaCitaWizard.show(
+        context,
+        citaExistente: c,
+      );
+
+      if (reagendada == true) {
+        _cargar();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Cita reagendada'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    }
   }
 }

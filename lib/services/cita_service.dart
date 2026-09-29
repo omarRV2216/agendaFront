@@ -155,4 +155,79 @@ class AppointmentService {
     }
   }
 
+  /// Cambiar solo el estado de una cita.
+  Future<void> cambiarEstado(int id, String status) async {
+    try {
+      final response = await _api.dio.patch(
+        '/appointments/$id/status',
+        data: {'status': status},
+      );
+
+      final data = response.data;
+
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? 'Error al cambiar estado');
+      }
+    } on DioException catch (e) {
+      final msg = e.response?.data['message'] ?? 'No se pudo conectar al servidor';
+      throw Exception(msg);
+    }
+  }
+
+  /// Eliminar cita.
+  Future<void> eliminar(int id) async {
+    try {
+      final response = await _api.dio.delete('/appointments/$id');
+
+      final data = response.data;
+
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? 'Error al eliminar cita');
+      }
+    } on DioException catch (e) {
+      final msg = e.response?.data['message'] ?? 'No se pudo conectar al servidor';
+      throw Exception(msg);
+    }
+  }
+
+  /// Actualizar cita (reagendar).
+  Future<void> actualizar({
+    required int id,
+    required int serviceId,
+    required int employeeId,
+    required String clientName,
+    String? clientPhone,
+    String? clientEmail,
+    required String appointmentDate,
+    required String startTime,
+    String? notes,
+    required String status,
+  }) async {
+    try {
+      final response = await _api.dio.post(
+        '/appointments/$id',
+        data: {
+          'service_id':       serviceId,
+          'employee_id':      employeeId,
+          'client_name':      clientName,
+          'client_phone':     clientPhone,
+          'client_email':     clientEmail,
+          'appointment_date': appointmentDate,
+          'start_time':       startTime,
+          'notes':            notes,
+          'status':           status,
+        },
+      );
+
+      final data = response.data;
+
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? 'Error al actualizar cita');
+      }
+    } on DioException catch (e) {
+      final msg = e.response?.data['message'] ?? 'No se pudo conectar al servidor';
+      throw Exception(msg);
+    }
+  }
+
 }

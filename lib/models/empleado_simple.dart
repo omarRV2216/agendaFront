@@ -1,24 +1,15 @@
 class EmpleadoSimple {
   final int id;
   final String name;
-  final String? username;
-  final String? phone;
-  final String? gender;
 
   EmpleadoSimple({
     required this.id,
     required this.name,
-    this.username,
-    this.phone,
-    this.gender,
   });
 
   factory EmpleadoSimple.fromJson(Map<String, dynamic> json) => EmpleadoSimple(
     id: json['id'] ?? 0,
     name: json['name'] ?? '',
-    username: json['username'] as String?,
-    phone: json['phone'] as String?,
-    gender: json['gender'] as String?,
   );
 
   /// Iniciales para el avatar (ej: "Ana Pérez" → "AP")

@@ -2,20 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:schedulefront/models/empleado_simple.dart';
 import 'package:schedulefront/models/service.dart';
+import 'package:schedulefront/services/empleado_service.dart';
 import 'package:schedulefront/services/service_service.dart';
-
+import '../../../../../models/cita.dart';
 import '../../../../../services/cita_service.dart';
 
 class NuevaCitaWizard extends StatefulWidget {
   final DateTime? fechaInicial;
+  final Appointment? citaExistente;   // 👈 NUEVO
 
-  const NuevaCitaWizard({super.key, this.fechaInicial});
+  const NuevaCitaWizard({
+    super.key,
+    this.fechaInicial,
+    this.citaExistente,
+  });
 
-  static Future<bool?> show(BuildContext context, {DateTime? fechaInicial}) {
+  static Future<bool?> show(
+      BuildContext context, {
+        DateTime? fechaInicial,
+        Appointment? citaExistente,       // 👈 NUEVO
+      }) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => NuevaCitaWizard(fechaInicial: fechaInicial),
+      builder: (_) => NuevaCitaWizard(
+        fechaInicial: fechaInicial,
+        citaExistente: citaExistente,
+      ),
     );
   }
 
@@ -32,9 +45,10 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
   String? _errorServicios;
   Service? _servicioSeleccionado;
 
-  // Empleados del servicio elegido
-  List<EmpleadoSimple> _empleadosDisponibles = [];
-  bool _loadingEmpleados = false;
+
+  // ── Empleados (se cargan al abrir, TODOS) ──
+  List<EmpleadoSimple> _empleados = [];
+  bool _loadingEmpleados = true;
 
   // ── Paso 2: cliente ──
   final _clientNameCtrl  = TextEditingController();
@@ -48,22 +62,58 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
   Map<String, dynamic>? _disponibilidad;
   bool _loadingSlots = false;
   String? _horaSeleccionada;
+  int? _empleadoPendienteId;
 
   // ── Paso 4: notas ──
   final _notesCtrl = TextEditingController();
 
   bool _enviando = false;
 
-  final _serviceService = ServiceService();
-  final _apptService    = AppointmentService();
+  final _serviceService  = ServiceService();
+  final _empleadoService = EmpleadoService();
+  final _apptService     = AppointmentService();
 
   @override
   void initState() {
     super.initState();
-    if (widget.fechaInicial != null) {
+
+    // Modo edición/reagendar
+    final c = widget.citaExistente;
+
+    if (c != null) {
+      // Cliente
+      _clientNameCtrl.text  = c.clientName;
+      _clientPhoneCtrl.text = c.clientPhone ?? '';
+      _clientEmailCtrl.text = c.clientEmail ?? '';
+      _notesCtrl.text       = c.notes ?? '';
+
+      // Empleado
+      _empleadoSeleccionado = EmpleadoSimple(      // ❌ ESTO ES EL PROBLEMA
+        id: c.employeeId,
+        name: c.employeeName ?? '',
+      );
+
+      // Fecha (opcional: precargar la actual, o dejar null para forzar a elegir)
+      // _fechaSeleccionada = DateTime.tryParse(c.appointmentDate);
+
+      // NO precargamos hora → para forzar a elegir nueva
+      // _horaSeleccionada = c.startTime.substring(11, 16);
+    } else if (widget.fechaInicial != null) {
       _fechaSeleccionada = widget.fechaInicial;
     }
-    _cargarServicios();
+
+    _cargarServicios().then((_) {
+      // Si estamos reagendando, seleccionar el servicio que tenía
+      if (c != null && mounted) {
+        final servicio = _servicios.firstWhere(
+              (s) => s.id == c.serviceId,
+          orElse: () => _servicios.isEmpty ? _servicios.first : _servicios.first,
+        );
+        setState(() => _servicioSeleccionado = servicio);
+      }
+    });
+
+    _cargarEmpleados();
   }
 
   @override
@@ -92,6 +142,11 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
         _servicios = lista;
         _loadingServicios = false;
       });
+
+      // 👇 Si estamos reagendando, preselecciona el servicio
+      if (widget.citaExistente != null) {
+        _preseleccionarServicio();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -101,25 +156,55 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // CARGA DE EMPLEADOS DEL SERVICIO
-  // ──────────────────────────────────────────────
-  Future<void> _cargarEmpleadosDelServicio() async {
-    if (_servicioSeleccionado == null) return;
-
-    setState(() {
-      _loadingEmpleados = true;
-      _empleadosDisponibles = [];
-    });
+  void _preseleccionarServicio() {
+    final c = widget.citaExistente;
+    if (c == null) return;
 
     try {
-      final lista = await _serviceService.empleados(_servicioSeleccionado!.id);
+      final servicio = _servicios.firstWhere((s) => s.id == c.serviceId);
+      setState(() => _servicioSeleccionado = servicio);
+    } catch (_) {
+      // El servicio ya no existe o está inactivo → no preseleccionar
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // CARGA DE EMPLEADOS (TODOS)
+  // ──────────────────────────────────────────────
+  Future<void> _cargarEmpleados() async {
+    setState(() => _loadingEmpleados = true);
+
+    try {
+      final lista = await _empleadoService.listaSimple();
       if (!mounted) return;
 
+      // 👇 Buscar el empleado pendiente antes de hacer setState
+      EmpleadoSimple? pendiente;
+      if (_empleadoPendienteId != null) {
+        for (final e in lista) {
+          if (e.id == _empleadoPendienteId) {
+            pendiente = e;
+            break;
+          }
+        }
+      }
+
       setState(() {
-        _empleadosDisponibles = lista;
+        _empleados = lista;
         _loadingEmpleados = false;
+
+        if (pendiente != null) {
+          _empleadoSeleccionado = pendiente;
+          _empleadoPendienteId = null;
+        }
       });
+
+      // Si ya hay servicio + fecha + empleado, cargar disponibilidad
+      if (_empleadoSeleccionado != null &&
+          _servicioSeleccionado != null &&
+          _fechaSeleccionada != null) {
+        _cargarDisponibilidad();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _loadingEmpleados = false);
@@ -184,13 +269,13 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
   void _seleccionarServicio(Service s) {
     setState(() {
       _servicioSeleccionado = s;
-      _empleadoSeleccionado = null;
-      _empleadosDisponibles = [];
-      _fechaSeleccionada = widget.fechaInicial;
       _horaSeleccionada = null;
       _disponibilidad = null;
     });
-    _cargarEmpleadosDelServicio();
+
+    if (_empleadoSeleccionado != null && _fechaSeleccionada != null) {
+      _cargarDisponibilidad();
+    }
   }
 
   void _seleccionarEmpleado(EmpleadoSimple? e) {
@@ -200,7 +285,7 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
       _disponibilidad = null;
     });
 
-    if (e != null && _fechaSeleccionada != null) {
+    if (e != null && _fechaSeleccionada != null && _servicioSeleccionado != null) {
       _cargarDisponibilidad();
     }
   }
@@ -212,7 +297,7 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
       _disponibilidad = null;
     });
 
-    if (_empleadoSeleccionado != null) {
+    if (_empleadoSeleccionado != null && _servicioSeleccionado != null) {
       _cargarDisponibilidad();
     }
   }
@@ -242,13 +327,15 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
   }
 
   Widget _buildHeader() {
+    final esReagendar = widget.citaExistente != null;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
       child: Row(
         children: [
-          const Text(
-            'Nueva cita',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Text(
+            esReagendar ? 'Reagendar cita' : 'Nueva cita',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
           IconButton(
@@ -662,7 +749,7 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
       );
     }
 
-    if (_empleadosDisponibles.isEmpty) {
+    if (_empleados.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -676,7 +763,7 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Ningún empleado puede realizar este servicio',
+                'No hay empleados disponibles',
                 style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
               ),
             ),
@@ -685,8 +772,11 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
       );
     }
 
+    final bool existeSeleccionado =
+    _empleados.any((e) => e.id == _empleadoSeleccionado?.id);
+
     return DropdownButtonFormField<int>(
-      value: _empleadoSeleccionado?.id,
+      value: existeSeleccionado ? _empleadoSeleccionado!.id : null,
       isExpanded: true,
       decoration: InputDecoration(
         hintText: 'Selecciona empleado',
@@ -706,7 +796,7 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
           borderSide: const BorderSide(color: Colors.pink, width: 1.5),
         ),
       ),
-      items: _empleadosDisponibles.map<DropdownMenuItem<int>>((e) {
+      items: _empleados.map<DropdownMenuItem<int>>((e) {
         return DropdownMenuItem<int>(
           value: e.id,
           child: Text(e.name),
@@ -714,7 +804,7 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
       }).toList(),
       onChanged: (val) {
         if (val == null) return;
-        final emp = _empleadosDisponibles.firstWhere((e) => e.id == val);
+        final emp = _empleados.firstWhere((e) => e.id == val);
         _seleccionarEmpleado(emp);
       },
     );
@@ -868,12 +958,13 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
             const Expanded(
               child: Center(child: CircularProgressIndicator(color: Colors.pink)),
             )
-          else if (_empleadoSeleccionado == null ||
+          else if (_servicioSeleccionado == null ||
+              _empleadoSeleccionado == null ||
               _fechaSeleccionada == null)
             Expanded(
               child: Center(
                 child: Text(
-                  'Elige empleado y fecha para ver horarios',
+                  'Elige servicio, empleado y fecha',
                   style: TextStyle(color: Colors.grey.shade500),
                   textAlign: TextAlign.center,
                 ),
@@ -891,69 +982,83 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
               )
             else
               Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 100,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 2.2,
-                  ),
-                  itemCount: (_disponibilidad!['slots'] as List).length,
-                  itemBuilder: (_, i) {
-                    final slot = (_disponibilidad!['slots'] as List)[i]
-                    as Map<String, dynamic>;
-                    final start = slot['start'] as String;
-                    final available = slot['available'] == true;
-                    final isSelected = _horaSeleccionada == start;
-
-                    return GestureDetector(
-                      onTap: available
-                          ? () => setState(() => _horaSeleccionada = start)
-                          : null,
-                      child: MouseRegion(
-                        cursor: available
-                            ? SystemMouseCursors.click
-                            : SystemMouseCursors.forbidden,
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: !available
-                                ? Colors.grey.shade100
-                                : isSelected
-                                ? Colors.pink
-                                : Colors.pink.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: !available
-                                  ? Colors.grey.shade200
-                                  : isSelected
-                                  ? Colors.pink
-                                  : Colors.pink.shade100,
-                            ),
-                          ),
-                          child: Text(
-                            start,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: !available
-                                  ? Colors.grey.shade400
-                                  : isSelected
-                                  ? Colors.white
-                                  : Colors.pink.shade700,
-                              decoration: !available
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                child: _buildSlotsDisponibles(),
               ),
         ],
       ),
+    );
+  }
+
+
+  Widget _buildSlotsDisponibles() {
+    // Filtrar solo los disponibles
+    final todosLosSlots = _disponibilidad!['slots'] as List;
+    final slotsDisponibles = todosLosSlots
+        .where((s) => (s as Map<String, dynamic>)['available'] == true)
+        .toList();
+
+    // Si no hay disponibles, mostrar mensaje
+    if (slotsDisponibles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.event_busy, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
+              'No hay horarios disponibles este día',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Prueba con otra fecha o empleado',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 100,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 2.2,
+      ),
+      itemCount: slotsDisponibles.length,
+      itemBuilder: (_, i) {
+        final slot = slotsDisponibles[i] as Map<String, dynamic>;
+        final start = slot['start'] as String;
+        final isSelected = _horaSeleccionada == start;
+
+        return GestureDetector(
+          onTap: () => setState(() => _horaSeleccionada = start),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.pink : Colors.pink.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected ? Colors.pink : Colors.pink.shade100,
+                  width: isSelected ? 1.5 : 1,
+                ),
+              ),
+              child: Text(
+                start,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : Colors.pink.shade700,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1159,22 +1264,47 @@ class _NuevaCitaWizardState extends State<NuevaCitaWizard> {
     setState(() => _enviando = true);
 
     try {
-      await _apptService.crear(
-        serviceId:       _servicioSeleccionado!.id,
-        employeeId:      _empleadoSeleccionado!.id,
-        clientName:      _clientNameCtrl.text.trim(),
-        clientPhone:     _clientPhoneCtrl.text.trim().isEmpty
-            ? null
-            : _clientPhoneCtrl.text.trim(),
-        clientEmail:     _clientEmailCtrl.text.trim().isEmpty
-            ? null
-            : _clientEmailCtrl.text.trim(),
-        appointmentDate: DateFormat('yyyy-MM-dd').format(_fechaSeleccionada!),
-        startTime:       _horaSeleccionada!,
-        notes:           _notesCtrl.text.trim().isEmpty
-            ? null
-            : _notesCtrl.text.trim(),
-      );
+      final esReagendar = widget.citaExistente != null;
+
+      if (esReagendar) {
+        // 👇 ACTUALIZAR cita existente
+        await _apptService.actualizar(
+          id: widget.citaExistente!.id!,   // ✅
+          serviceId:       _servicioSeleccionado!.id,
+          employeeId:      _empleadoSeleccionado!.id,
+          clientName:      _clientNameCtrl.text.trim(),
+          clientPhone:     _clientPhoneCtrl.text.trim().isEmpty
+              ? null
+              : _clientPhoneCtrl.text.trim(),
+          clientEmail:     _clientEmailCtrl.text.trim().isEmpty
+              ? null
+              : _clientEmailCtrl.text.trim(),
+          appointmentDate: DateFormat('yyyy-MM-dd').format(_fechaSeleccionada!),
+          startTime:       _horaSeleccionada!,
+          notes:           _notesCtrl.text.trim().isEmpty
+              ? null
+              : _notesCtrl.text.trim(),
+          status:          widget.citaExistente!.status,   // mantener estado
+        );
+      } else {
+        // 👇 CREAR nueva cita
+        await _apptService.crear(
+          serviceId:       _servicioSeleccionado!.id,
+          employeeId:      _empleadoSeleccionado!.id,
+          clientName:      _clientNameCtrl.text.trim(),
+          clientPhone:     _clientPhoneCtrl.text.trim().isEmpty
+              ? null
+              : _clientPhoneCtrl.text.trim(),
+          clientEmail:     _clientEmailCtrl.text.trim().isEmpty
+              ? null
+              : _clientEmailCtrl.text.trim(),
+          appointmentDate: DateFormat('yyyy-MM-dd').format(_fechaSeleccionada!),
+          startTime:       _horaSeleccionada!,
+          notes:           _notesCtrl.text.trim().isEmpty
+              ? null
+              : _notesCtrl.text.trim(),
+        );
+      }
 
       if (!mounted) return;
       Navigator.pop(context, true);
