@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:schedulefront/screens/dashboard/pages/citas/widgets/create_cita.dart';
 import 'package:schedulefront/screens/dashboard/pages/citas/widgets/detalles_cita.dart';
+import 'package:schedulefront/screens/dashboard/pages/citas/widgets/filtro_citas.dart';
 import '../../../../models/cita.dart';
 import '../../../../services/cita_service.dart';
+import 'package:schedulefront/models/empleado_simple.dart';
+import 'package:schedulefront/services/empleado_service.dart';
 
 class CitasListaPage extends StatefulWidget {
   const CitasListaPage({super.key});
@@ -14,8 +17,13 @@ class CitasListaPage extends StatefulWidget {
 
 class _CitasListaPageState extends State<CitasListaPage> {
   final _service = AppointmentService();
+  final _empleadoService = EmpleadoService();
 
-  // Semana actual (lunes de la semana mostrada)
+  // Filtro por empleado
+  List<EmpleadoSimple> _empleados = [];
+  int? _empleadoFiltroId;
+
+  // Semana actual
   DateTime _semanaActual = _lunesDe(DateTime.now());
 
   List<Appointment> _citas = [];
@@ -54,9 +62,20 @@ class _CitasListaPageState extends State<CitasListaPage> {
     }
   }
 
+  Future<void> _cargarEmpleados() async {
+    try {
+      final lista = await _empleadoService.listaSimple();
+      if (!mounted) return;
+      setState(() => _empleados = lista);
+    } catch (_) {
+      // Si falla, no pasa nada. El dropdown mostrará solo "Todos".
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _cargarEmpleados();
     _cargar();
   }
 
@@ -74,6 +93,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
       final lista = await _service.listar(
         from: fmt.format(_semanaActual),
         to:   fmt.format(_domingo),
+        employeeId: _empleadoFiltroId,
       );
 
       final citas = lista.map((e) => Appointment.fromJson(e)).toList();
@@ -139,6 +159,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Fila superior: contador + título + filtro + nueva cita ──
           Row(
             children: [
               Container(
@@ -171,6 +192,20 @@ class _CitasListaPageState extends State<CitasListaPage> {
                 ],
               ),
               const Spacer(),
+
+              // 👇 Filtro al lado del botón
+              FiltroEmpleadoDropdown(
+                empleados: _empleados,
+                seleccionadoId: _empleadoFiltroId,
+                width: 240,
+                onChanged: (id) {
+                  setState(() => _empleadoFiltroId = id);
+                  _cargar();
+                },
+              ),
+              const SizedBox(width: 12),
+
+              // Botón Nueva cita
               FilledButton.icon(
                 onPressed: _abrirCrearCita,
                 icon: const Icon(Icons.add, size: 18),
@@ -182,6 +217,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
 
           const SizedBox(height: 16),
 
+          // ── Navegación de semana ──
           Row(
             children: [
               IconButton(
@@ -441,7 +477,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
   // ──────────────────────────────────────────────
   // Algoritmo de columnas
   // ──────────────────────────────────────────────
-  /// Dado un grupo de citas, calcula en qué sub-columna va cada una.
   List<Map<String, dynamic>> _calcularColumnas(List<Appointment> citas) {
     if (citas.isEmpty) return [];
 
@@ -450,7 +485,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
 
     final resultado = <Map<String, dynamic>>[];
 
-    // Agrupar en clusters (citas que se solapan entre sí)
     final clusters = <List<Appointment>>[];
 
     for (final cita in ordenadas) {
@@ -474,7 +508,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
       }
     }
 
-    // Dentro de cada cluster, asignar columnas
     for (final cluster in clusters) {
       final columnas = <DateTime>[];
 
@@ -526,7 +559,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
     required List<Appointment> citas,
     required bool esHoy,
   }) {
-    // Calcular posiciones con el algoritmo de columnas
     final posiciones = _calcularColumnas(citas);
 
     final eventos = <Widget>[];
@@ -549,7 +581,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
 
       if (top + height < 0 || top > totalHoras * altoHora) continue;
 
-      // Repartir el ancho entre las columnas del cluster
       final anchoSlot = (ancho - 4) / totalCols;
       final left = colIndex * anchoSlot + 2;
 
@@ -704,9 +735,9 @@ class _CitasListaPageState extends State<CitasListaPage> {
   // Colores por estado
   // ──────────────────────────────────────────────
   Color _colorEstado(String status) => switch (status) {
-    'pending'   => Colors.tealAccent.shade700,   // 🟠
-    'completed' => Colors.green.shade700,    // 🟢
-    'cancelled' => Colors.red.shade600,      // 🔴
+    'pending'   => Colors.tealAccent.shade700,
+    'completed' => Colors.green.shade700,
+    'cancelled' => Colors.red.shade600,
     _           => Colors.grey.shade600,
   };
 
@@ -746,7 +777,6 @@ class _CitasListaPageState extends State<CitasListaPage> {
         );
       }
     } else if (accion == 'reschedule') {
-      // 👇 El padre abre el wizard
       final reagendada = await NuevaCitaWizard.show(
         context,
         citaExistente: c,

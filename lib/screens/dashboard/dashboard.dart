@@ -5,6 +5,7 @@ import 'package:schedulefront/screens/dashboard/menu_items.dart';
 import 'package:schedulefront/screens/dashboard/pages/citas/citas_lista.dart';
 import 'package:schedulefront/screens/dashboard/pages/empleados/Empleados.dart';
 import 'package:schedulefront/screens/dashboard/pages/servicios/servicios_lista.dart';
+import 'package:schedulefront/screens/dashboard/pages/setting/business_config_page.dart';
 import 'package:schedulefront/screens/dashboard/pages/welcome/welcome_home.dart';
 import '../login.dart';
 import 'pages/page_1_1.dart';
@@ -75,6 +76,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: 'Crear servicio',
             icon: Icons.add,
             page: const EmpleadosPage(),
+          ),
+        ],
+      ),
+
+      MenuSection(
+        title: 'Configuración',
+        icon: Icons.settings,
+        items: [
+          SubMenuItem(
+            title: 'Lista de Servicios',
+            icon: Icons.list,
+            page: const BusinessConfigPage(),
           ),
         ],
       ),
