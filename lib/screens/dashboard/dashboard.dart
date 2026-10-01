@@ -85,8 +85,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: Icons.settings,
         items: [
           SubMenuItem(
-            title: 'Lista de Servicios',
-            icon: Icons.list,
+            title: 'Horarios',
+            icon: Icons.timer_sharp,
             page: const BusinessConfigPage(),
           ),
         ],
