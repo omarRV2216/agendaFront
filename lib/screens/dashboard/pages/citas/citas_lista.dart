@@ -79,6 +79,16 @@ class _CitasListaPageState extends State<CitasListaPage> {
   @override
   void initState() {
     super.initState();
+
+    // 👇 Leer el usuario logueado
+    final auth = context.read<AuthProvider>();
+    final user = auth.user;
+
+    // Si NO es admin → filtrar por su propio ID
+    if (user != null && !auth.isAdmin) {
+      _empleadoFiltroId = user.id;
+    }
+
     _cargarEmpleados();
     _cargar();
   }
@@ -197,17 +207,45 @@ class _CitasListaPageState extends State<CitasListaPage> {
               ),
               const Spacer(),
 
-              // 👇 Filtro al lado del botón
-              FiltroEmpleadoDropdown(
-                empleados: _empleados,
-                seleccionadoId: _empleadoFiltroId,
-                width: 240,
-                onChanged: (id) {
-                  setState(() => _empleadoFiltroId = id);
-                  _cargar();
-                },
-              ),
-              const SizedBox(width: 12),
+              // 👇 Filtro de empleado — SOLO admin
+              if (isAdmin) ...[
+                FiltroEmpleadoDropdown(
+                  empleados: _empleados,
+                  seleccionadoId: _empleadoFiltroId,
+                  width: 240,
+                  onChanged: (id) {
+                    setState(() => _empleadoFiltroId = id);
+                    _cargar();
+                  },
+                ),
+                const SizedBox(width: 12),
+              ] else ...[
+                // 👇 Empleado: mostrar un chip con su nombre
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.pink.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.pink.shade100),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person, size: 16, color: Colors.pink.shade700),
+                      const SizedBox(width: 8),
+                      Text(
+                        context.watch<AuthProvider>().user?.name ?? 'Empleado',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.pink.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
 
               // Botón Nueva cita
               if(isAdmin)
