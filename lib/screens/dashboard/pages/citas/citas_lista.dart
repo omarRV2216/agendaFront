@@ -641,7 +641,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
         cursor: SystemMouseCursors.click,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           decoration: BoxDecoration(
             color: color.withOpacity(0.15),
             border: Border(
@@ -649,39 +649,36 @@ class _CitasListaPageState extends State<CitasListaPage> {
             ),
             borderRadius: BorderRadius.circular(5),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                c.clientName,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: color.withOpacity(0.9),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (c.durationMinutes >= 45)
+          // 👇 ClipRRect evita el overflow visual
+          child: ClipRect(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Text(
-                  c.serviceName,
+                  c.clientName,
                   style: TextStyle(
-                    fontSize: 9.5,
-                    color: Colors.grey.shade700,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: color.withOpacity(0.9),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              if (c.durationMinutes >= 60)
-                Text(
-                  DateFormat('HH:mm').format(DateTime.parse(c.startTime)),
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: Colors.grey.shade600,
+                if (c.durationMinutes >= 45)
+                  Text(
+                    c.serviceName,
+                    style: TextStyle(fontSize: 9.5, color: Colors.grey.shade700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-            ],
+                if (c.durationMinutes >= 60)
+                  Text(
+                    DateFormat('HH:mm').format(DateTime.parse(c.startTime)),
+                    style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
