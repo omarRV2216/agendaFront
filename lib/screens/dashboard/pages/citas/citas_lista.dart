@@ -7,6 +7,8 @@ import '../../../../models/cita.dart';
 import '../../../../services/cita_service.dart';
 import 'package:schedulefront/models/empleado_simple.dart';
 import 'package:schedulefront/services/empleado_service.dart';
+import 'package:provider/provider.dart';
+import 'package:schedulefront/providers/auth_provider.dart';
 
 class CitasListaPage extends StatefulWidget {
   const CitasListaPage({super.key});
@@ -18,6 +20,8 @@ class CitasListaPage extends StatefulWidget {
 class _CitasListaPageState extends State<CitasListaPage> {
   final _service = AppointmentService();
   final _empleadoService = EmpleadoService();
+  late final auth = context.read<AuthProvider>();
+  late final isAdmin = auth.isAdmin;
 
   // Filtro por empleado
   List<EmpleadoSimple> _empleados = [];
@@ -206,6 +210,7 @@ class _CitasListaPageState extends State<CitasListaPage> {
               const SizedBox(width: 12),
 
               // Botón Nueva cita
+              if(isAdmin)
               FilledButton.icon(
                 onPressed: _abrirCrearCita,
                 icon: const Icon(Icons.add, size: 18),
@@ -558,7 +563,8 @@ class _CitasListaPageState extends State<CitasListaPage> {
     required int totalHoras,
     required List<Appointment> citas,
     required bool esHoy,
-  }) {
+  })
+  {
     final posiciones = _calcularColumnas(citas);
 
     final eventos = <Widget>[];
@@ -689,7 +695,8 @@ class _CitasListaPageState extends State<CitasListaPage> {
     required double altoHora,
     required int horaInicio,
     required double anchoDia,
-  }) {
+  })
+  {
     final ahora = DateTime.now();
 
     final diff = DateTime(ahora.year, ahora.month, ahora.day)

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import 'package:schedulefront/models/cita.dart';
 import 'package:schedulefront/screens/dashboard/pages/citas/widgets/create_cita.dart';
 import 'package:schedulefront/services/cita_service.dart';
+
+import '../../../../../providers/auth_provider.dart';
 
 class DetalleCitaDialog extends StatefulWidget {
   final Appointment cita;
@@ -24,6 +27,9 @@ class DetalleCitaDialog extends StatefulWidget {
 
 class _DetalleCitaDialogState extends State<DetalleCitaDialog> {
   final _service = AppointmentService();
+
+  late final auth = context.read<AuthProvider>();
+  late final isAdmin = auth.isAdmin;
 
   late Appointment _cita;
   bool _procesando = false;
@@ -228,6 +234,7 @@ class _DetalleCitaDialogState extends State<DetalleCitaDialog> {
             label: 'Servicio',
             valor: _cita.serviceName,
           ),
+          if(isAdmin)
           _buildFila(
             icono: Icons.attach_money,
             label: 'Precio',
@@ -263,6 +270,7 @@ class _DetalleCitaDialogState extends State<DetalleCitaDialog> {
             ),
           ],
 
+          if(isAdmin)
           if (_cita.clientPhone != null && _cita.clientPhone!.isNotEmpty)
             _buildFila(
               icono: Icons.phone_outlined,
@@ -270,6 +278,7 @@ class _DetalleCitaDialogState extends State<DetalleCitaDialog> {
               valor: _cita.clientPhone!,
             ),
 
+          if(isAdmin)
           if (_cita.clientEmail != null && _cita.clientEmail!.isNotEmpty)
             _buildFila(
               icono: Icons.email_outlined,
@@ -337,6 +346,7 @@ class _DetalleCitaDialogState extends State<DetalleCitaDialog> {
       padding: const EdgeInsets.all(14),
       child: Column(
         children: [
+          if(isAdmin)
           // Botones de estado
           Row(
             children: [
@@ -372,6 +382,7 @@ class _DetalleCitaDialogState extends State<DetalleCitaDialog> {
           const SizedBox(height: 8),
 
           // Reagendar
+          if(isAdmin)
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -388,6 +399,7 @@ class _DetalleCitaDialogState extends State<DetalleCitaDialog> {
           const SizedBox(height: 8),
 
           // Eliminar
+          if(isAdmin)
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

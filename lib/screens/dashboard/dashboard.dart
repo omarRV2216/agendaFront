@@ -19,23 +19,24 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   Object? _currentItem;
 
+  late final List<MenuSection> _sections;
+
   @override
   void initState() {
     super.initState();
-    // Sin lógica de Provider aquí
-  }
 
-  // ──────────────────────────────────────────────
-  // Construir secciones según rol
-  // ──────────────────────────────────────────────
-  List<MenuSection> _buildSections(bool isAdmin) {
-    return [
+    // 👇 Leer el rol con context.read (funciona en initState)
+    final auth = context.read<AuthProvider>();
+    final isAdmin = auth.isAdmin;
+
+    _sections = [
       MenuSection(
         title: 'Home',
         icon: Icons.home,
         page: const WelcomeHome(),
       ),
 
+      // Citas — todos
       MenuSection(
         title: 'Citas',
         icon: Icons.calendar_today,
@@ -47,36 +48,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+
+      // Empleados — solo admin
       if (isAdmin)
-      MenuSection(
-        title: 'Empleados',
-        icon: Icons.people,
-        items: [
-          SubMenuItem(
-            title: 'Lista de empleados',
-            icon: Icons.assignment,
-            page: const EmpleadosPage(),
-          ),
-        ],
-      ),
+        MenuSection(
+          title: 'Empleados',
+          icon: Icons.people,
+          items: [
+            SubMenuItem(
+              title: 'Lista de empleados',
+              icon: Icons.assignment,
+              page: const EmpleadosPage(),
+            ),
+          ],
+        ),
+
+      // Servicios — solo admin
       if (isAdmin)
-      MenuSection(
-        title: 'Servicios',
-        icon: Icons.spa,
-        items: [
-          SubMenuItem(
-            title: 'Lista de Servicios',
-            icon: Icons.list,
-            page: const ServiciosListaPage(),
-          ),
+        MenuSection(
+          title: 'Servicios',
+          icon: Icons.spa,
+          items: [
+            SubMenuItem(
+              title: 'Lista de Servicios',
+              icon: Icons.list,
+              page: const ServiciosListaPage(),
+            ),
             SubMenuItem(
               title: 'Crear servicio',
               icon: Icons.add,
               page: const EmpleadosPage(),
             ),
-        ],
-      ),
+          ],
+        ),
 
+      // Configuración — solo admin
       if (isAdmin)
         MenuSection(
           title: 'Configuración',
@@ -90,14 +96,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
     ];
-  }
 
-  bool _itemEstaEnSections(Object item, List<MenuSection> sections) {
-    for (final s in sections) {
-      if (s == item) return true;
-      if (s.items.contains(item)) return true;
-    }
-    return false;
+    _currentItem = _sections.first;
   }
 
   Widget _getCurrentPage() {
@@ -162,17 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 800;
-
-    final auth = context.watch<AuthProvider>();
-    final isAdmin = auth.isAdmin;
-    final user = auth.user;
-
-    final sections = _buildSections(isAdmin);
-
-    // Si el item actual no está en las secciones visibles → resetear
-    if (_currentItem != null && !_itemEstaEnSections(_currentItem!, sections)) {
-      _currentItem = sections.first;
-    }
+    final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
       appBar: AppBar(
@@ -184,13 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(user.name, style: const TextStyle(fontSize: 14)),
-                  ],
-                ),
+                child: Text(user.name, style: const TextStyle(fontSize: 14)),
               ),
             ),
           IconButton(
@@ -200,11 +184,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      drawer: isWide ? null : _buildDrawer(isWide, sections),
+      drawer: isWide ? null : _buildDrawer(isWide),
       body: isWide
           ? Row(
         children: [
-          SizedBox(width: 280, child: _buildSidebar(isWide, sections)),
+          SizedBox(width: 280, child: _buildSidebar(isWide)),
           const VerticalDivider(width: 1),
           Expanded(child: _getCurrentPage()),
         ],
@@ -213,20 +197,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSidebar(bool isWide, List<MenuSection> sections) {
+  Widget _buildSidebar(bool isWide) {
     return Container(
       color: Colors.grey.shade100,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           const SizedBox(height: 16),
-          ...sections.map((s) => _buildSection(s, isWide)).toList(),
+          ..._sections.map((s) => _buildSection(s, isWide)).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildDrawer(bool isWide, List<MenuSection> sections) {
+  Widget _buildDrawer(bool isWide) {
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -254,7 +238,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
-                children: sections.map((s) => _buildSection(s, isWide)).toList(),
+                children: _sections.map((s) => _buildSection(s, isWide)).toList(),
               ),
             ),
             const Divider(height: 1),
