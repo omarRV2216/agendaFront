@@ -16,9 +16,13 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _user != null;
 
+  // 👇 HELPERS DE ROL
+  bool get isAdmin => _user?.isAdmin ?? false;
+  bool get isEmployee => _user?.isEmployee ?? false;
+  bool get isStaff => _user?.isStaff ?? false;
+
   /// Intenta restaurar la sesión al abrir la app
   Future<bool> tryAutoLogin() async {
-
     await _apiService.loadToken();
 
     if (_apiService.token == null) {

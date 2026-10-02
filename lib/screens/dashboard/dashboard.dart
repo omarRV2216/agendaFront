@@ -8,8 +8,6 @@ import 'package:schedulefront/screens/dashboard/pages/servicios/servicios_lista.
 import 'package:schedulefront/screens/dashboard/pages/setting/business_config_page.dart';
 import 'package:schedulefront/screens/dashboard/pages/welcome/welcome_home.dart';
 import '../login.dart';
-import 'pages/page_1_1.dart';
-import 'pages/page_1_2.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,13 +19,17 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   Object? _currentItem;
 
-  late final List<MenuSection> _sections;
-
   @override
   void initState() {
     super.initState();
+    // Sin lógica de Provider aquí
+  }
 
-    _sections = [
+  // ──────────────────────────────────────────────
+  // Construir secciones según rol
+  // ──────────────────────────────────────────────
+  List<MenuSection> _buildSections(bool isAdmin) {
+    return [
       MenuSection(
         title: 'Home',
         icon: Icons.home,
@@ -43,14 +45,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icons.list,
             page: const CitasListaPage(),
           ),
-          SubMenuItem(
-            title: 'Calendario',
-            icon: Icons.calendar_month,
-            page: const Page12(),
-          ),
         ],
       ),
-
+      if (isAdmin)
       MenuSection(
         title: 'Empleados',
         icon: Icons.people,
@@ -62,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-
+      if (isAdmin)
       MenuSection(
         title: 'Servicios',
         icon: Icons.spa,
@@ -72,28 +69,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icons.list,
             page: const ServiciosListaPage(),
           ),
-          SubMenuItem(
-            title: 'Crear servicio',
-            icon: Icons.add,
-            page: const EmpleadosPage(),
-          ),
+            SubMenuItem(
+              title: 'Crear servicio',
+              icon: Icons.add,
+              page: const EmpleadosPage(),
+            ),
         ],
       ),
 
-      MenuSection(
-        title: 'Configuración',
-        icon: Icons.settings,
-        items: [
-          SubMenuItem(
-            title: 'Horarios',
-            icon: Icons.timer_sharp,
-            page: const BusinessConfigPage(),
-          ),
-        ],
-      ),
+      if (isAdmin)
+        MenuSection(
+          title: 'Configuración',
+          icon: Icons.settings,
+          items: [
+            SubMenuItem(
+              title: 'Horarios',
+              icon: Icons.timer_sharp,
+              page: const BusinessConfigPage(),
+            ),
+          ],
+        ),
     ];
+  }
 
-    _currentItem = _sections.first;
+  bool _itemEstaEnSections(Object item, List<MenuSection> sections) {
+    for (final s in sections) {
+      if (s == item) return true;
+      if (s.items.contains(item)) return true;
+    }
+    return false;
   }
 
   Widget _getCurrentPage() {
@@ -158,7 +162,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 800;
-    final user = context.watch<AuthProvider>().user;
+
+    final auth = context.watch<AuthProvider>();
+    final isAdmin = auth.isAdmin;
+    final user = auth.user;
+
+    final sections = _buildSections(isAdmin);
+
+    // Si el item actual no está en las secciones visibles → resetear
+    if (_currentItem != null && !_itemEstaEnSections(_currentItem!, sections)) {
+      _currentItem = sections.first;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -170,7 +184,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Center(
-                child: Text(user.name, style: const TextStyle(fontSize: 14)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(user.name, style: const TextStyle(fontSize: 14)),
+                  ],
+                ),
               ),
             ),
           IconButton(
@@ -180,11 +200,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      drawer: isWide ? null : _buildDrawer(isWide),
+      drawer: isWide ? null : _buildDrawer(isWide, sections),
       body: isWide
           ? Row(
         children: [
-          SizedBox(width: 280, child: _buildSidebar(isWide)),
+          SizedBox(width: 280, child: _buildSidebar(isWide, sections)),
           const VerticalDivider(width: 1),
           Expanded(child: _getCurrentPage()),
         ],
@@ -193,20 +213,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSidebar(bool isWide) {
+  Widget _buildSidebar(bool isWide, List<MenuSection> sections) {
     return Container(
       color: Colors.grey.shade100,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           const SizedBox(height: 16),
-          ..._sections.map((s) => _buildSection(s, isWide)).toList(),
+          ...sections.map((s) => _buildSection(s, isWide)).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildDrawer(bool isWide) {
+  Widget _buildDrawer(bool isWide, List<MenuSection> sections) {
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -234,8 +254,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
-                children:
-                _sections.map((s) => _buildSection(s, isWide)).toList(),
+                children: sections.map((s) => _buildSection(s, isWide)).toList(),
               ),
             ),
             const Divider(height: 1),
@@ -256,7 +275,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Construye una sección (ExpansionTile si tiene subsecciones, ListTile si es directa)
   Widget _buildSection(MenuSection section, bool isWide) {
     if (section.isDirect) {
       final isSelected = _isSelected(section);
@@ -282,7 +300,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // Si tiene subsecciones → ExpansionTile
     return ExpansionTile(
       leading: Icon(section.icon, color: Colors.pink),
       title: Text(
@@ -295,7 +312,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   bool _isSectionExpanded(MenuSection section) {
-    // Expandida si contiene el item actual
     return section.items.contains(_currentItem);
   }
 

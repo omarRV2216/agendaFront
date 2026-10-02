@@ -41,6 +41,9 @@ class User {
     };
   }
 
+  // 👇 Helpers de rol
   bool get isAdmin => role == 'admin';
   bool get isEmployee => role == 'empleado';
+  bool get isUser => role == 'user';
+  bool get isStaff => isAdmin || isEmployee;   // 👈 NUEVO
 }
