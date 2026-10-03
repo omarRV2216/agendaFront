@@ -9,6 +9,7 @@ import 'package:schedulefront/models/empleado_simple.dart';
 import 'package:schedulefront/services/empleado_service.dart';
 import 'package:provider/provider.dart';
 import 'package:schedulefront/providers/auth_provider.dart';
+import 'widgets/filtro_empleado_dialog.dart';
 
 class CitasListaPage extends StatefulWidget {
   const CitasListaPage({super.key});
@@ -74,6 +75,70 @@ class _CitasListaPageState extends State<CitasListaPage> {
     } catch (_) {
       // Si falla, no pasa nada. El dropdown mostrará solo "Todos".
     }
+  }
+
+  Future<void> _abrirFiltroEmpleado() async {
+    final resultado = await FiltroEmpleadoDialog.show(
+      context,
+      empleados: _empleados,
+      seleccionadoId: _empleadoFiltroId,
+    );
+
+    // El usuario cerró sin elegir
+    if (resultado == null) return;
+
+    // Aplicar filtro
+    setState(() => _empleadoFiltroId = resultado.empleadoId);
+    _cargar();
+  }
+
+  Widget _buildChipFiltro() {
+    // Encontrar el nombre del empleado
+    String nombre = 'Todos';
+    if (_empleadoFiltroId != null) {
+      try {
+        final emp = _empleados.firstWhere((e) => e.id == _empleadoFiltroId);
+        nombre = emp.name;
+      } catch (_) {
+        nombre = 'Empleado';
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.pink.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.pink.shade100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person, size: 14, color: Colors.pink),
+          const SizedBox(width: 6),
+          Text(
+            nombre,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.pink,
+            ),
+          ),
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: () {
+              setState(() => _empleadoFiltroId = null);
+              _cargar();
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.all(2),
+              child: Icon(Icons.close, size: 14, color: Colors.pink),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -207,20 +272,44 @@ class _CitasListaPageState extends State<CitasListaPage> {
               ),
               const Spacer(),
 
-              // 👇 Filtro de empleado — SOLO admin
-              if (isAdmin) ...[
-                FiltroEmpleadoDropdown(
-                  empleados: _empleados,
-                  seleccionadoId: _empleadoFiltroId,
-                  width: 240,
-                  onChanged: (id) {
-                    setState(() => _empleadoFiltroId = id);
-                    _cargar();
-                  },
+              // Botón Nueva cita
+              if(isAdmin)
+                FilledButton.icon(
+                  onPressed: _abrirCrearCita,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Nueva cita'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.pink),
                 ),
+
+              //Filtro de empleado — SOLO admin
+              if (isAdmin) ...[
+                // Botón de filtro
+                IconButton(
+                  icon: Badge(
+                    isLabelVisible: _empleadoFiltroId != null,
+                    backgroundColor: Colors.pink,
+                    child: const Icon(Icons.filter_alt_outlined),
+                  ),
+                  tooltip: 'Filtrar por empleado',
+                  onPressed: _abrirFiltroEmpleado,
+                  style: IconButton.styleFrom(
+                    backgroundColor: _empleadoFiltroId != null
+                        ? Colors.pink.shade50
+                        : Colors.grey.shade100,
+                    foregroundColor: _empleadoFiltroId != null
+                        ? Colors.pink
+                        : Colors.grey.shade700,
+                  ),
+                ),
+
+                // 👇 Chip con el filtro activo
+                if (_empleadoFiltroId != null) ...[
+                  const SizedBox(width: 8),
+                  _buildChipFiltro(),
+                ],
                 const SizedBox(width: 12),
               ] else ...[
-                // 👇 Empleado: mostrar un chip con su nombre
+                // Empleado: chip con su nombre
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
@@ -247,14 +336,13 @@ class _CitasListaPageState extends State<CitasListaPage> {
                 const SizedBox(width: 12),
               ],
 
-              // Botón Nueva cita
-              if(isAdmin)
-              FilledButton.icon(
-                onPressed: _abrirCrearCita,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Nueva cita'),
-                style: FilledButton.styleFrom(backgroundColor: Colors.pink),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  _cargar();
+                },
               ),
+
             ],
           ),
 
