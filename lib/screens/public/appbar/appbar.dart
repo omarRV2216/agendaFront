@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 
-/// AppBar reutilizable para el portal público.
-///
-/// Uso:
-/// ```dart
-/// Scaffold(
-///   appBar: PortalAppBar(
-///     seccionActual: 'inicio',   // 'inicio' | 'servicios' | 'contacto'
-///   ),
-///   body: ...,
-/// )
-/// ```
 class PortalAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String seccionActual;
+
+  /// Callback cuando el usuario elige una sección
+  final void Function(String seccion)? onSeccionSeleccionada;
 
   const PortalAppBar({
     super.key,
     this.seccionActual = 'inicio',
+    this.onSeccionSeleccionada,
   });
+
+  /// Definición de secciones (agregar aquí las nuevas)
+  static const List<({String label, String value})> _secciones = [
+    (label: 'Inicio',    value: 'inicio'),
+    (label: 'Servicios', value: 'servicios'),
+    (label: 'Contacto',  value: 'contacto'),
+  ];
 
   @override
   Size get preferredSize => const Size.fromHeight(70);
@@ -33,8 +33,6 @@ class PortalAppBar extends StatelessWidget implements PreferredSizeWidget {
       scrolledUnderElevation: 1,
       automaticallyImplyLeading: false,
       toolbarHeight: 70,
-
-      // ── Logo / marca ──
       title: Row(
         children: [
           Container(
@@ -56,14 +54,9 @@ class PortalAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ],
       ),
-
-      // ── Secciones ──
       actions: isWide
           ? [
-        _buildSecciones(context),
-        const SizedBox(width: 20),
-        _buildBotonLogin(context),
-        const SizedBox(width: 20),
+        _buildSeccionesDesktop(context),
       ]
           : [
         _buildMenuHamburguesa(context),
@@ -74,45 +67,17 @@ class PortalAppBar extends StatelessWidget implements PreferredSizeWidget {
   // ──────────────────────────────────────────────
   // Secciones (desktop)
   // ──────────────────────────────────────────────
-  Widget _buildSecciones(BuildContext context) {
+  Widget _buildSeccionesDesktop(BuildContext context) {
     return Row(
-      children: [
-        _buildSeccion(
-          context,
-          label: 'Inicio',
-          value: 'inicio',
-          onTap: () => Navigator.pushNamed(context, '/mipagina'),
-        ),
-        _buildSeccion(
-          context,
-          label: 'Servicios',
-          value: 'servicios',
-          onTap: () {
-            // TODO: navegar a la sección de servicios
-          },
-        ),
-        _buildSeccion(
-          context,
-          label: 'Contacto',
-          value: 'contacto',
-          onTap: () {
-            // TODO: navegar a la sección de contacto
-          },
-        ),
-      ],
+      children: _secciones.map((s) => _buildSeccion(s)).toList(),
     );
   }
 
-  Widget _buildSeccion(
-      BuildContext context, {
-        required String label,
-        required String value,
-        required VoidCallback onTap,
-      }) {
-    final activo = seccionActual == value;
+  Widget _buildSeccion(({String label, String value}) seccion) {
+    final activo = seccionActual == seccion.value;
 
     return InkWell(
-      onTap: onTap,
+      onTap: () => onSeccionSeleccionada?.call(seccion.value),   // 👈 callback
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -121,28 +86,13 @@ class PortalAppBar extends StatelessWidget implements PreferredSizeWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          label,
+          seccion.label,
           style: TextStyle(
             fontSize: 14,
             fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
             color: activo ? Colors.pink : Colors.black87,
           ),
         ),
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────
-  // Botón login (desktop)
-  // ──────────────────────────────────────────────
-  Widget _buildBotonLogin(BuildContext context) {
-    return FilledButton.icon(
-      onPressed: () => Navigator.pushNamed(context, '/login'),
-      icon: const Icon(Icons.login, size: 16),
-      label: const Text('Iniciar sesión'),
-      style: FilledButton.styleFrom(
-        backgroundColor: Colors.pink,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }
@@ -157,64 +107,35 @@ class PortalAppBar extends StatelessWidget implements PreferredSizeWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       onSelected: (value) {
-        switch (value) {
-          case 'inicio':
-            Navigator.pushNamed(context, '/mipagina');
-            break;
-          case 'servicios':
+        if (value == 'login') {
           // TODO
-            break;
-          case 'contacto':
-          // TODO
-            break;
-          case 'login':
-            Navigator.pushNamed(context, '/login');
-            break;
+          return;
         }
+        onSeccionSeleccionada?.call(value);   // 👈 callback
       },
       itemBuilder: (_) => [
-        const PopupMenuItem(
-          value: 'inicio',
-          child: Row(
-            children: [
-              Icon(Icons.home, size: 18),
-              SizedBox(width: 8),
-              Text('Inicio'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'servicios',
-          child: Row(
-            children: [
-              Icon(Icons.spa, size: 18),
-              SizedBox(width: 8),
-              Text('Servicios'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'contacto',
-          child: Row(
-            children: [
-              Icon(Icons.contact_mail, size: 18),
-              SizedBox(width: 8),
-              Text('Contacto'),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'login',
-          child: Row(
-            children: [
-              Icon(Icons.login, size: 18, color: Colors.pink),
-              SizedBox(width: 8),
-              Text('Iniciar sesión', style: TextStyle(color: Colors.pink)),
-            ],
-          ),
-        ),
+        ..._secciones.map((s) {
+          return PopupMenuItem<String>(
+            value: s.value,
+            child: Row(
+              children: [
+                Icon(_iconoDeSeccion(s.value), size: 18),
+                const SizedBox(width: 8),
+                Text(s.label),
+              ],
+            ),
+          );
+        }),
       ],
     );
+  }
+
+  IconData _iconoDeSeccion(String value) {
+    switch (value) {
+      case 'inicio':    return Icons.home_outlined;
+      case 'servicios': return Icons.spa_outlined;
+      case 'contacto':  return Icons.contact_mail_outlined;
+      default:          return Icons.circle_outlined;
+    }
   }
 }
